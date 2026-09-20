@@ -1,16 +1,16 @@
 # CodeAlpha_TaskBoard
 
 A collaborative project management tool (projects, boards, tasks, comments) built with
-Next.js 14 (App Router), TypeScript, Tailwind CSS, Prisma and PostgreSQL (Supabase).
+Next.js 14 (App Router), TypeScript, Tailwind CSS, Prisma and PostgreSQL (Neon).
 
 ## Stack
 
-| Concern  | Choice                              |
-| -------- | ----------------------------------- |
-| Framework| Next.js 14 (App Router, TypeScript) |
-| Styling  | Tailwind CSS                        |
-| ORM      | Prisma 6                            |
-| Database | PostgreSQL (Supabase)               |
+| Concern   | Choice                              |
+| --------- | ----------------------------------- |
+| Framework | Next.js 14 (App Router, TypeScript) |
+| Styling   | Tailwind CSS                        |
+| ORM       | Prisma 6                            |
+| Database  | PostgreSQL (Neon)                   |
 
 ## Project structure
 
@@ -36,9 +36,18 @@ prisma/       schema.prisma and migrations
    cp .env.example .env
    ```
 
-   - `DATABASE_URL` — Supabase Postgres connection string
-     (Supabase dashboard → Settings → Database → Connection string → URI).
+   - `DATABASE_URL` — Neon **pooled** connection string (the host contains `-pooler`).
+     Used by the app at runtime.
+   - `DIRECT_URL` — the same string **without** `-pooler`. Used by `prisma migrate`,
+     which cannot run through the transaction pooler.
    - `NEXTAUTH_SECRET` — generate with `openssl rand -base64 32`.
+
+   Both connection strings are in the Neon console under your project → **Connect**
+   (choose the *Prisma* snippet).
+
+   > **Outbound port 5432 must be reachable.** Some home and office networks block it,
+   > which surfaces as `P1001: Can't reach database server`. A mobile hotspot, VPN or
+   > Cloudflare WARP gets around it.
 
 3. Generate the Prisma client and run the app:
 
@@ -51,16 +60,16 @@ prisma/       schema.prisma and migrations
 
 ## Scripts
 
-| Script               | Purpose                                  |
-| -------------------- | ---------------------------------------- |
-| `npm run dev`        | Start the dev server                     |
-| `npm run build`      | Production build                         |
-| `npm run start`      | Serve the production build               |
-| `npm run lint`       | ESLint                                   |
-| `npm run db:generate`| `prisma generate`                        |
-| `npm run db:push`    | Push the schema without a migration      |
-| `npm run db:migrate` | Create and apply a dev migration         |
-| `npm run db:studio`  | Open Prisma Studio                       |
+| Script                | Purpose                             |
+| --------------------- | ----------------------------------- |
+| `npm run dev`         | Start the dev server                |
+| `npm run build`       | Production build                    |
+| `npm run start`       | Serve the production build          |
+| `npm run lint`        | ESLint                              |
+| `npm run db:generate` | `prisma generate`                   |
+| `npm run db:push`     | Push the schema without a migration |
+| `npm run db:migrate`  | Create and apply a dev migration    |
+| `npm run db:studio`   | Open Prisma Studio                  |
 
 ## Build phases
 
