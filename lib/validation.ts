@@ -48,7 +48,9 @@ export const updateBoardSchema = z
 const priority = z.enum(["LOW", "MEDIUM", "HIGH"]);
 
 /** Accepts an ISO string or a yyyy-mm-dd value; null clears the date. */
-const dueDate = z.union([z.coerce.date(), z.null()]);
+// `null` must come first: z.coerce.date() turns null into new Date(null), i.e.
+// 1 Jan 1970, which would otherwise win and make it impossible to clear a date.
+const dueDate = z.union([z.null(), z.coerce.date()]);
 
 export const createTaskSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(200),

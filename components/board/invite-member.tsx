@@ -45,8 +45,11 @@ export function InviteMember({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+        className="btn-secondary"
       >
+        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM19 8v6M22 11h-6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
         Invite member
       </button>
     );
@@ -55,11 +58,11 @@ export function InviteMember({
   return (
     <form
       onSubmit={handleSubmit}
-      className="w-full rounded-lg border border-slate-200 bg-white p-3 sm:w-auto"
+      className="card w-full animate-pop-in p-4 sm:w-auto"
     >
       <div className="flex flex-wrap items-end gap-2">
-        <label className="flex-1">
-          <span className="block text-xs font-medium text-slate-600">Email address</span>
+        <label className="min-w-full flex-1 sm:min-w-0">
+          <span className="label">Email address</span>
           <input
             type="email"
             required
@@ -67,16 +70,16 @@ export function InviteMember({
             value={email}
             placeholder="teammate@example.com"
             onChange={(event) => setEmail(event.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-indigo-500 sm:w-64"
+            className="mt-1 input input-sm sm:w-64"
           />
         </label>
 
         <label>
-          <span className="block text-xs font-medium text-slate-600">Role</span>
+          <span className="label">Role</span>
           <select
             value={role}
             onChange={(event) => setRole(event.target.value as "MEMBER" | "ADMIN")}
-            className="mt-1 rounded-md border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-indigo-500"
+            className="input input-sm mt-1.5 w-auto"
           >
             <option value="MEMBER">Member</option>
             <option value="ADMIN">Admin</option>
@@ -86,7 +89,7 @@ export function InviteMember({
         <button
           type="submit"
           disabled={saving}
-          className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+          className="btn-primary btn-sm"
         >
           {saving ? "Adding…" : "Add"}
         </button>
@@ -98,22 +101,22 @@ export function InviteMember({
             setError(null);
             setMessage(null);
           }}
-          className="rounded-md px-2 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
+          className="btn-ghost btn-sm"
         >
           Done
         </button>
       </div>
 
-      <p className="mt-2 text-xs text-slate-500">
+      <p className="mt-3 text-xs text-ink-400">
         The person needs a TaskBoard account already.
       </p>
 
       {error ? (
-        <p role="alert" className="mt-2 text-xs text-red-600">
+        <p role="alert" className="mt-2 text-xs font-medium text-rose-600">
           {error}
         </p>
       ) : null}
-      {message ? <p className="mt-2 text-xs text-emerald-700">{message}</p> : null}
+      {message ? <p className="mt-2 text-xs font-medium text-emerald-600">{message}</p> : null}
     </form>
   );
 }

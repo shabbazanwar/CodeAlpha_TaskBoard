@@ -40,33 +40,40 @@ export function NewProjectButton({ variant = "primary" }: { variant?: "primary" 
     }
   }
 
-  const className =
-    variant === "primary"
-      ? "rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-      : "rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100";
+  const className = variant === "primary" ? "btn-primary" : "btn-secondary";
 
   return (
     <>
       <button type="button" onClick={() => setOpen(true)} className={className}>
+        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.6">
+          <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+        </svg>
         New project
       </button>
 
       <Modal open={open} onClose={close} title="New project">
         <form onSubmit={handleSubmit} className="p-6">
-          <h2 className="text-lg font-semibold text-slate-900">New project</h2>
-          <p className="mt-1 text-sm text-slate-500">
+          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-500 text-white shadow-glow">
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
+              <rect x="3" y="4" width="5" height="16" rx="1.6" />
+              <rect x="10" y="4" width="5" height="10" rx="1.6" fillOpacity="0.8" />
+              <rect x="17" y="4" width="4" height="6" rx="1.6" fillOpacity="0.6" />
+            </svg>
+          </span>
+          <h2 className="mt-4 text-xl font-semibold tracking-tight text-ink-900">New project</h2>
+          <p className="mt-1 text-sm text-ink-500">
             It starts with three columns: To Do, In Progress and Done.
           </p>
 
           {error ? (
-            <p role="alert" className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+            <p role="alert" className="mt-4 alert-error">
               {error}
             </p>
           ) : null}
 
           <div className="mt-4 space-y-4">
             <div>
-              <label htmlFor="project-name" className="block text-sm font-medium text-slate-700">
+              <label htmlFor="project-name" className="block text-sm font-medium text-ink-700">
                 Name
               </label>
               <input
@@ -76,16 +83,16 @@ export function NewProjectButton({ variant = "primary" }: { variant?: "primary" 
                 maxLength={120}
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                className="input mt-1.5"
               />
             </div>
 
             <div>
               <label
                 htmlFor="project-description"
-                className="block text-sm font-medium text-slate-700"
+                className="block text-sm font-medium text-ink-700"
               >
-                Description <span className="font-normal text-slate-400">(optional)</span>
+                Description <span className="font-normal text-ink-400">(optional)</span>
               </label>
               <textarea
                 id="project-description"
@@ -93,7 +100,7 @@ export function NewProjectButton({ variant = "primary" }: { variant?: "primary" 
                 maxLength={2000}
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
-                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                className="input mt-1.5"
               />
             </div>
           </div>
@@ -102,14 +109,14 @@ export function NewProjectButton({ variant = "primary" }: { variant?: "primary" 
             <button
               type="button"
               onClick={close}
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+              className="btn-secondary"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+              className="btn-primary"
             >
               {saving ? "Creating…" : "Create project"}
             </button>

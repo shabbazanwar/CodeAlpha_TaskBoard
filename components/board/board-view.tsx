@@ -4,7 +4,8 @@ import {
   DndContext,
   DragOverlay,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   closestCorners,
   useSensor,
   useSensors,
@@ -12,6 +13,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import Link from "next/link";
 import { useCallback, useState, type FormEvent } from "react";
 import { BoardColumn } from "@/components/board/board-column";
 import { TaskCardBody } from "@/components/board/task-card";
@@ -27,7 +29,7 @@ import {
 import { useProjectRealtime } from "@/components/board/use-project-realtime";
 import { InviteMember } from "@/components/board/invite-member";
 import { TaskDetail } from "@/components/board/task-detail";
-import { Avatar } from "@/components/ui/avatar";
+import { AvatarStack } from "@/components/ui/avatar";
 import { ApiError, api, jsonBody } from "@/lib/client";
 import type { BoardData, MemberData, ProjectBoardData, TaskCardData } from "@/lib/types";
 
@@ -104,8 +106,10 @@ export function BoardView({
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
   const sensors = useSensors(
-    // A small distance lets plain clicks on the card title and select through.
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    // Mouse: a small distance lets plain clicks on the card title and select through.
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    // Touch: press and hold to pick a card up, so a normal swipe still scrolls the board.
+    useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
@@ -257,129 +261,143 @@ export function BoardView({
 
   const canInvite = project.role === "OWNER" || project.role === "ADMIN";
 
+  const totalTasks = project.boards.reduce((sum, board) => sum + board.tasks.length, 0);
+  const doneTasks = project.boards
+    .filter((board) => /(done|complete|shipped|closed)/i.test(board.name))
+    .reduce((sum, board) => sum + board.tasks.length, 0);
+  const progress = totalTasks === 0 ? 0 : Math.round((doneTasks / totalTasks) * 100);
+
   return (
-    <main className="mx-auto max-w-[100rem] px-4 py-6 sm:px-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+    <main className="mx-auto max-w-[100rem] px-4 py-8 sm:px-6">
+      <div className="animate-rise-in flex flex-wrap items-start justify-between gap-5">
         <div className="min-w-0">
-          <h1 className="truncate text-xl font-semibold text-slate-900">{project.name}</h1>
+          <Link
+            href="/projects"
+            className="inline-flex items-center gap-1 text-xs font-medium text-ink-500 transition hover:text-indigo-600"
+          >
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.6">
+              <path d="m15 6-6 6 6 6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            All projects
+          </Link>
+          <h1 className="mt-2 truncate text-3xl font-semibold tracking-tight text-ink-900">
+            {project.name}
+          </h1>
           {project.description ? (
-            <p className="mt-1 max-w-2xl text-sm text-slate-500">{project.description}</p>
+            <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-ink-500">
+              {project.description}
+            </p>
           ) : null}
 
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            {project.members.map((member) => (
-              <span key={member.id} className="flex items-center gap-1.5">
-                <Avatar user={member.user} size="sm" />
-                <span className="text-xs text-slate-600">
-                  {member.user.name}
-                  {member.role !== "MEMBER" ? (
-                    <span className="ml-1 text-[10px] uppercase tracking-wide text-slate-400">
-                      {member.role}
-                    </span>
-                  ) : null}
-                </span>
+          <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-3">
+            <div className="flex items-center gap-2.5">
+              <AvatarStack users={project.members.map((member) => member.user)} max={6} />
+              <span className="text-xs font-medium text-ink-500">
+                {project.members.length} member{project.members.length === 1 ? "" : "s"}
               </span>
-            ))}
+            </div>
+
+            <div className="flex items-center gap-2.5" title={`${doneTasks} of ${totalTasks} tasks done`}>
+              <div className="h-1.5 w-28 overflow-hidden rounded-full bg-ink-100">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-teal-400 transition-all duration-500"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <span className="text-xs font-medium text-ink-500">
+                {totalTasks === 0 ? "No tasks yet" : `${progress}% done · ${totalTasks} tasks`}
+              </span>
+            </div>
           </div>
         </div>
 
-        {canInvite ? (
-          <InviteMember projectId={project.id} onInvited={handleInvited} />
-        ) : null}
+        {canInvite ? <InviteMember projectId={project.id} onInvited={handleInvited} /> : null}
       </div>
 
       {error ? (
-        <p
-          role="alert"
-          className="mt-4 flex items-center justify-between gap-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700"
-        >
+        <p role="alert" className="alert-error mt-5 animate-pop-in items-center justify-between">
           <span>{error}</span>
-          <button
-            type="button"
-            onClick={() => setError(null)}
-            className="rounded px-2 py-0.5 text-xs font-medium hover:bg-red-100"
-          >
+          <button type="button" onClick={() => setError(null)} className="btn-ghost btn-sm">
             Dismiss
           </button>
         </p>
       ) : null}
 
       <DndContext
+        // A fixed id keeps dnd-kit's generated aria ids identical on server and client.
+        id="board-dnd"
         sensors={sensors}
         collisionDetection={closestCorners}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onDragCancel={() => setDraggingId(null)}
       >
-      <div className="mt-6 flex items-start gap-4 overflow-x-auto pb-4">
-        {project.boards.map((board) => (
-          <BoardColumn
-            key={board.id}
-            board={board}
-            boards={project.boards}
-            onOpenTask={setOpenTaskId}
-            onMoveTask={(taskId, toBoardId) => void moveTask(taskId, toBoardId)}
-            onCreateTask={createTask}
-            onRenameBoard={renameBoard}
-          />
-        ))}
+        <div className="-mx-4 mt-7 flex snap-x snap-proximity items-start gap-3 overflow-x-auto px-4 pb-6 sm:mx-0 sm:gap-4 sm:px-0">
+          {project.boards.map((board, index) => (
+            <BoardColumn
+              key={board.id}
+              board={board}
+              index={index}
+              boards={project.boards}
+              onOpenTask={setOpenTaskId}
+              onMoveTask={(taskId, toBoardId) => void moveTask(taskId, toBoardId)}
+              onCreateTask={createTask}
+              onRenameBoard={renameBoard}
+            />
+          ))}
 
-        <div className="w-72 shrink-0">
-          {addingBoard ? (
-            <form onSubmit={handleAddBoard} className="rounded-lg bg-slate-100 p-3">
-              <input
-                autoFocus
-                value={boardName}
-                maxLength={80}
-                placeholder="Column name"
-                aria-label="New column name"
-                onChange={(event) => setBoardName(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Escape") setAddingBoard(false);
-                }}
-                className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-indigo-500"
-              />
-              <div className="mt-2 flex gap-2">
-                <button
-                  type="submit"
-                  disabled={!boardName.trim()}
-                  className="rounded-md bg-indigo-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
-                >
-                  Add column
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAddingBoard(false)}
-                  className="rounded-md px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-200"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setAddingBoard(true)}
-              className="w-full rounded-lg border border-dashed border-slate-300 bg-white/60 px-3 py-3 text-sm font-medium text-slate-600 hover:border-indigo-300 hover:text-indigo-700"
-            >
-              + Add board
-            </button>
-          )}
-        </div>
-      </div>
-
-      <DragOverlay>
-        {draggingTask ? (
-          <div className="w-72 rotate-2 cursor-grabbing">
-            <TaskCardBody task={draggingTask} boards={project.boards} />
+          <div className="w-[82vw] max-w-[19rem] shrink-0 snap-start">
+            {addingBoard ? (
+              <form onSubmit={handleAddBoard} className="card animate-pop-in p-3">
+                <input
+                  autoFocus
+                  value={boardName}
+                  maxLength={80}
+                  placeholder="Column name"
+                  aria-label="New column name"
+                  onChange={(event) => setBoardName(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") setAddingBoard(false);
+                  }}
+                  className="input"
+                />
+                <div className="mt-2.5 flex gap-2">
+                  <button type="submit" disabled={!boardName.trim()} className="btn-primary btn-sm">
+                    Add column
+                  </button>
+                  <button type="button" onClick={() => setAddingBoard(false)} className="btn-ghost btn-sm">
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setAddingBoard(true)}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-ink-200 bg-white/40 px-3 py-4 text-sm font-medium text-ink-500 transition hover:border-indigo-300 hover:bg-white/80 hover:text-indigo-600"
+              >
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.4">
+                  <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+                </svg>
+                Add column
+              </button>
+            )}
           </div>
-        ) : null}
-      </DragOverlay>
+        </div>
+
+        <DragOverlay dropAnimation={{ duration: 180, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" }}>
+          {draggingTask ? (
+            <div className="w-[17.5rem] rotate-2 cursor-grabbing shadow-pop">
+              <TaskCardBody task={draggingTask} boards={project.boards} />
+            </div>
+          ) : null}
+        </DragOverlay>
       </DndContext>
 
       {openTaskId ? (
         <TaskDetail
           taskId={openTaskId}
+          initialTask={findTask(project.boards, openTaskId)}
           boards={project.boards}
           members={project.members}
           onClose={() => setOpenTaskId(null)}

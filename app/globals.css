@@ -3,25 +3,120 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f4f8fc;
+  --foreground: #0f1a2c;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    color: var(--foreground);
+    font-family: var(--font-geist-sans), system-ui, sans-serif;
+    background-color: var(--background);
+    /* Soft ambient colour behind everything, fixed so it never scrolls away. */
+    background-image:
+      radial-gradient(60rem 32rem at 12% -10%, rgb(96 165 250 / 0.18), transparent 60%),
+      radial-gradient(50rem 30rem at 100% 0%, rgb(45 212 191 / 0.13), transparent 55%),
+      radial-gradient(40rem 26rem at 50% 110%, rgb(56 189 248 / 0.1), transparent 60%);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    background: rgb(59 130 246 / 0.25);
+  }
+
+  :focus-visible {
+    outline: 2px solid rgb(37 99 235);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  /* Slim scrollbars that stay out of the way of the board. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(133 147 171 / 0.45) transparent;
+  }
+  *::-webkit-scrollbar {
+    height: 10px;
+    width: 10px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: rgb(133 147 171 / 0.4);
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 999px;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: rgb(92 106 130 / 0.6);
+    background-clip: content-box;
+    border: 3px solid transparent;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+/* Shared building blocks, so every screen speaks the same visual language. */
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-sm font-medium transition duration-150 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-gradient-to-b from-indigo-500 to-indigo-600 text-white shadow-[0_1px_0_rgb(255_255_255/0.25)_inset,0_6px_16px_-6px_rgb(37_99_235/0.7)] hover:from-indigo-500 hover:to-violet-600 hover:shadow-glow;
+  }
+  .btn-secondary {
+    @apply btn border border-ink-200 bg-white/80 text-ink-700 shadow-soft backdrop-blur hover:border-ink-300 hover:bg-white;
+  }
+  .btn-ghost {
+    @apply btn text-ink-600 hover:bg-ink-100 hover:text-ink-900;
+  }
+  .btn-danger {
+    @apply btn border border-rose-200 bg-white text-rose-600 hover:bg-rose-50;
+  }
+  .btn-sm {
+    @apply rounded-lg px-2.5 py-1.5 text-xs;
+  }
+
+  .input {
+    @apply w-full rounded-xl border border-ink-200 bg-white px-3.5 py-2.5 text-sm text-ink-900 shadow-soft outline-none transition placeholder:text-ink-300 hover:border-ink-300 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/20;
+  }
+  .input-sm {
+    @apply rounded-lg px-2.5 py-1.5;
+  }
+
+  .label {
+    @apply block text-xs font-semibold uppercase tracking-wider text-ink-500;
+  }
+
+  .card {
+    @apply rounded-2xl border border-white/70 bg-white/80 shadow-card backdrop-blur;
+  }
+
+  .alert-error {
+    @apply flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-sm text-rose-700;
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-indigo-600 via-violet-500 to-fuchsia-500 bg-clip-text text-transparent;
+  }
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+  .bg-dots {
+    background-image: radial-gradient(rgb(15 26 44 / 0.09) 1px, transparent 1px);
+    background-size: 22px 22px;
   }
 }

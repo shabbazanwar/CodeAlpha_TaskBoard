@@ -24,6 +24,7 @@ function toDateInput(iso: string | null): string {
 
 export function TaskDetail({
   taskId,
+  initialTask,
   boards,
   members,
   onClose,
@@ -32,6 +33,8 @@ export function TaskDetail({
   onCommentAdded,
 }: {
   taskId: string;
+  /** What the board already knows, so the modal can open instantly. */
+  initialTask?: TaskCardData;
   boards: BoardData[];
   members: MemberData[];
   onClose: () => void;
@@ -39,7 +42,10 @@ export function TaskDetail({
   onTaskDeleted: (taskId: string) => void;
   onCommentAdded: (taskId: string) => void;
 }) {
-  const [task, setTask] = useState<TaskDetailData | null>(null);
+  const [task, setTask] = useState<TaskDetailData | null>(
+    initialTask ? { ...initialTask, comments: [] } : null
+  );
+  const [commentsLoading, setCommentsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -48,9 +54,15 @@ export function TaskDetail({
 
   const load = useCallback(async () => {
     setLoadError(null);
-    setTask(null);
+    setCommentsLoading(true);
     try {
-      setTask(await api<TaskDetailData>(`/api/tasks/${taskId}`));
+      const loaded = await api<TaskDetailData>(`/api/tasks/${taskId}`);
+      // If the modal opened from the board's data, keep any edits made while this
+      // was in flight and take only the comments from the server.
+      setTask((current) =>
+        current ? { ...current, comments: loaded.comments, commentCount: loaded.commentCount } : loaded
+      );
+      setCommentsLoading(false);
     } catch (caught) {
       setLoadError(caught instanceof ApiError ? caught.message : "Could not load this task.");
     }
@@ -121,8 +133,8 @@ export function TaskDetail({
   }
 
   return (
-    <Modal open onClose={onClose} title={task?.title ?? "Task"}>
-      {loadError ? (
+    <Modal open onClose={onClose} title={task?.title ?? "Task"} size="lg">
+      {loadError && !task ? (
         <div className="p-6">
           <ErrorBlock message={loadError} onRetry={load} />
           <div className="mt-4 flex justify-end">
@@ -132,7 +144,7 @@ export function TaskDetail({
       ) : !task ? (
         <LoadingBlock label="Loading task…" />
       ) : (
-        <div className="max-h-[80vh] overflow-y-auto p-6">
+        <div className="max-h-[82vh] overflow-y-auto p-6 sm:p-8">
           <div className="flex items-start justify-between gap-4">
             <input
               value={task.title}
@@ -143,23 +155,23 @@ export function TaskDetail({
                 const value = event.target.value.trim();
                 if (value && value !== task.title) void patch({ title: value });
               }}
-              className="-ml-2 w-full rounded px-2 py-1 text-lg font-semibold text-slate-900 outline-none hover:bg-slate-50 focus:bg-white focus:ring-1 focus:ring-indigo-400"
+              className="-ml-2.5 w-full rounded-xl px-2.5 py-1.5 text-2xl font-semibold tracking-tight text-ink-900 outline-none transition hover:bg-ink-50 focus:bg-white focus:ring-4 focus:ring-indigo-500/15"
             />
             <CloseButton onClose={onClose} />
           </div>
 
           {saveError ? (
-            <p role="alert" className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+            <p role="alert" className="mt-3 alert-error">
               {saveError}
             </p>
           ) : null}
 
-          <div className="mt-4 grid gap-4 sm:grid-cols-3">
+          <div className="mt-5 grid gap-4 rounded-2xl bg-ink-50/70 p-4 sm:grid-cols-2">
             <Labelled label="Column">
               <select
                 value={task.boardId}
                 onChange={(event) => void patch({ boardId: event.target.value })}
-                className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-indigo-500"
+                className="input input-sm"
               >
                 {boards.map((board) => (
                   <option key={board.id} value={board.id}>
@@ -175,7 +187,7 @@ export function TaskDetail({
                 onChange={(event) =>
                   void patch({ assigneeId: event.target.value ? event.target.value : null })
                 }
-                className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-indigo-500"
+                className="input input-sm"
               >
                 <option value="">Unassigned</option>
                 {members.map((member) => (
@@ -190,7 +202,7 @@ export function TaskDetail({
               <select
                 value={task.priority}
                 onChange={(event) => void patch({ priority: event.target.value })}
-                className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-indigo-500"
+                className="input input-sm"
               >
                 {PRIORITIES.map((priority) => (
                   <option key={priority} value={priority}>
@@ -207,7 +219,7 @@ export function TaskDetail({
                 onChange={(event) =>
                   void patch({ dueDate: event.target.value ? event.target.value : null })
                 }
-                className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-indigo-500"
+                className="input input-sm"
               />
             </Labelled>
           </div>
@@ -215,7 +227,7 @@ export function TaskDetail({
           <div className="mt-5">
             <label
               htmlFor="task-description"
-              className="block text-xs font-medium uppercase tracking-wide text-slate-500"
+              className="label"
             >
               Description
             </label>
@@ -230,31 +242,49 @@ export function TaskDetail({
                 const value = event.target.value.trim();
                 if (value !== (task.description ?? "")) void patch({ description: value || null });
               }}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+              className="input mt-1.5"
             />
           </div>
 
           <section className="mt-6">
-            <h3 className="text-xs font-medium uppercase tracking-wide text-slate-500">
-              Comments ({task.comments.length})
+            <h3 className="label flex items-center gap-2">
+              Comments
+              <span className="rounded-full bg-ink-100 px-2 py-0.5 text-[10px] font-semibold text-ink-600">
+                {commentsLoading ? task.commentCount : task.comments.length}
+              </span>
             </h3>
 
-            {task.comments.length === 0 ? (
-              <p className="mt-2 text-sm text-slate-500">No comments yet.</p>
+            {commentsLoading && !loadError ? (
+              <div className="mt-3 space-y-3" aria-busy="true" aria-label="Loading comments">
+                {Array.from({ length: Math.min(Math.max(task.commentCount, 1), 3) }, (_, index) => (
+                  <div key={index} className="flex gap-3">
+                    <div className="h-8 w-8 shrink-0 animate-pulse rounded-full bg-ink-100" />
+                    <div className="h-12 flex-1 animate-pulse rounded-2xl bg-ink-50" />
+                  </div>
+                ))}
+              </div>
+            ) : loadError ? (
+              <div className="mt-3">
+                <ErrorBlock message={loadError} onRetry={load} />
+              </div>
+            ) : task.comments.length === 0 ? (
+              <p className="mt-3 rounded-xl border border-dashed border-ink-200 px-4 py-5 text-center text-sm text-ink-400">
+                No comments yet. Start the conversation below.
+              </p>
             ) : (
-              <ul className="mt-2 space-y-3">
+              <ul className="mt-3 space-y-4">
                 {task.comments.map((entry) => (
-                  <li key={entry.id} className="flex gap-2">
-                    <Avatar user={entry.author} size="sm" />
+                  <li key={entry.id} className="flex gap-3">
+                    <Avatar user={entry.author} size="md" />
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs text-slate-500">
-                        <span className="font-medium text-slate-700">{entry.author.name}</span>{" "}
-                        {new Date(entry.createdAt).toLocaleString(undefined, {
+                      <p className="text-xs text-ink-400">
+                        <span className="text-sm font-semibold text-ink-800">{entry.author.name}</span>{" "}
+                        · {new Date(entry.createdAt).toLocaleString(undefined, {
                           dateStyle: "medium",
                           timeStyle: "short",
                         })}
                       </p>
-                      <p className="whitespace-pre-wrap break-words text-sm text-slate-800">
+                      <p className="mt-1 whitespace-pre-wrap break-words rounded-2xl rounded-tl-md bg-ink-50 px-3.5 py-2.5 text-sm leading-relaxed text-ink-800">
                         {entry.body}
                       </p>
                     </div>
@@ -263,7 +293,7 @@ export function TaskDetail({
               </ul>
             )}
 
-            <form onSubmit={handleComment} className="mt-3">
+            <form onSubmit={handleComment} className="mt-4">
               <textarea
                 rows={2}
                 value={comment}
@@ -271,20 +301,20 @@ export function TaskDetail({
                 placeholder="Write a comment…"
                 aria-label="Write a comment"
                 onChange={(event) => setComment(event.target.value)}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+                className="input"
               />
               <button
                 type="submit"
                 disabled={postingComment || !comment.trim()}
-                className="mt-2 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+                className="mt-2 btn-primary btn-sm"
               >
                 {postingComment ? "Posting…" : "Comment"}
               </button>
             </form>
           </section>
 
-          <div className="mt-6 flex items-center justify-between border-t border-slate-200 pt-4">
-            <p className="text-xs text-slate-400">
+          <div className="mt-8 flex items-center justify-between border-t border-ink-100 pt-4">
+            <p className="text-xs text-ink-400">
               {task.createdBy ? `Created by ${task.createdBy.name}` : "Created by a removed user"}
               {saving ? " · Saving…" : ""}
             </p>
@@ -292,7 +322,7 @@ export function TaskDetail({
               type="button"
               onClick={handleDelete}
               disabled={saving}
-              className="rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
+              className="btn-danger btn-sm"
             >
               Delete task
             </button>
@@ -306,9 +336,7 @@ export function TaskDetail({
 function Labelled({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="block text-xs font-medium uppercase tracking-wide text-slate-500">
-        {label}
-      </span>
+      <span className="label">{label}</span>
       <span className="mt-1 block">{children}</span>
     </label>
   );
@@ -320,9 +348,11 @@ function CloseButton({ onClose }: { onClose: () => void }) {
       type="button"
       onClick={onClose}
       aria-label="Close"
-      className="shrink-0 rounded-md px-2 py-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+      className="shrink-0 rounded-xl p-2 text-ink-400 transition hover:bg-ink-100 hover:text-ink-700"
     >
-      ✕
+      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.6">
+        <path d="M6 6l12 12M18 6 6 18" strokeLinecap="round" />
+      </svg>
     </button>
   );
 }

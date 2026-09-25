@@ -8,8 +8,29 @@ import type { BoardData } from "@/lib/types";
 
 export const columnDropId = (boardId: string) => `column:${boardId}`;
 
+/** Status colour for a column, inferred from its name (else by position). */
+function toneFor(name: string, index: number): { dot: string; bar: string; count: string } {
+  const key = name.trim().toLowerCase();
+  if (/(done|complete|shipped|closed)/.test(key))
+    return { dot: "bg-emerald-500", bar: "from-emerald-400 to-teal-400", count: "bg-emerald-50 text-emerald-700" };
+  if (/(progress|doing|active|working)/.test(key))
+    return { dot: "bg-indigo-500", bar: "from-indigo-400 to-violet-400", count: "bg-indigo-50 text-indigo-700" };
+  if (/(review|test|qa|blocked)/.test(key))
+    return { dot: "bg-amber-500", bar: "from-amber-400 to-orange-400", count: "bg-amber-50 text-amber-700" };
+  if (/(to ?do|backlog|new|idea)/.test(key))
+    return { dot: "bg-ink-400", bar: "from-ink-300 to-ink-400", count: "bg-ink-100 text-ink-600" };
+
+  const cycle = [
+    { dot: "bg-sky-500", bar: "from-sky-400 to-cyan-400", count: "bg-sky-50 text-sky-700" },
+    { dot: "bg-cyan-500", bar: "from-cyan-400 to-sky-400", count: "bg-cyan-50 text-cyan-700" },
+    { dot: "bg-teal-500", bar: "from-teal-400 to-emerald-400", count: "bg-teal-50 text-teal-700" },
+  ];
+  return cycle[index % cycle.length];
+}
+
 export function BoardColumn({
   board,
+  index,
   boards,
   onOpenTask,
   onMoveTask,
@@ -17,6 +38,7 @@ export function BoardColumn({
   onRenameBoard,
 }: {
   board: BoardData;
+  index: number;
   boards: BoardData[];
   onOpenTask: (taskId: string) => void;
   onMoveTask: (taskId: string, toBoardId: string) => void;
@@ -32,6 +54,7 @@ export function BoardColumn({
     id: columnDropId(board.id),
     data: { type: "column", boardId: board.id },
   });
+  const tone = toneFor(board.name, index);
 
   async function handleAdd(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -62,11 +85,15 @@ export function BoardColumn({
   return (
     <section
       ref={setNodeRef}
-      className={`flex w-72 shrink-0 flex-col rounded-lg p-3 transition-colors ${
-        isOver ? "bg-indigo-50 ring-2 ring-indigo-200" : "bg-slate-100"
+      className={`flex w-[82vw] max-w-[19rem] shrink-0 snap-start flex-col rounded-2xl border p-3 transition-colors duration-150 ${
+        isOver
+          ? "border-indigo-300 bg-indigo-50/80 shadow-lift"
+          : "border-white/70 bg-ink-100/60 backdrop-blur"
       }`}
     >
-      <header className="flex items-center justify-between gap-2">
+      <div aria-hidden className={`-mt-3 mb-3 h-1 rounded-b-full bg-gradient-to-r opacity-80 ${tone.bar}`} />
+
+      <header className="flex items-center justify-between gap-2 px-1">
         {renaming ? (
           <form
             onSubmit={(event) => {
@@ -81,7 +108,7 @@ export function BoardColumn({
               maxLength={80}
               onChange={(event) => setName(event.target.value)}
               onBlur={() => void commitRename()}
-              className="w-full rounded border border-indigo-300 px-2 py-1 text-sm font-medium outline-none"
+              className="input input-sm py-1 font-semibold"
               aria-label="Column name"
             />
           </form>
@@ -90,20 +117,21 @@ export function BoardColumn({
             type="button"
             onClick={() => setRenaming(true)}
             title="Click to rename"
-            className="flex-1 truncate text-left text-sm font-semibold text-slate-700"
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-md text-left"
           >
-            {board.name}
+            <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${tone.dot}`} />
+            <span className="truncate text-sm font-semibold text-ink-800">{board.name}</span>
           </button>
         )}
-        <span className="rounded-full bg-white px-2 py-0.5 text-xs text-slate-500">
+        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${tone.count}`}>
           {board.tasks.length}
         </span>
       </header>
 
-      <div className="mt-3 flex min-h-[2.5rem] flex-col gap-2">
+      <div className="mt-3 flex min-h-[2.5rem] flex-col gap-2.5">
         {board.tasks.length === 0 && !adding ? (
-          <p className="rounded-md border border-dashed border-slate-300 px-3 py-6 text-center text-xs text-slate-500">
-            Nothing here yet.
+          <p className="rounded-xl border border-dashed border-ink-200 bg-white/40 px-3 py-7 text-center text-xs text-ink-400">
+            {isOver ? "Drop it here" : "No tasks yet"}
           </p>
         ) : null}
 
@@ -124,7 +152,7 @@ export function BoardColumn({
       </div>
 
       {adding ? (
-        <form onSubmit={handleAdd} className="mt-2">
+        <form onSubmit={handleAdd} className="mt-2.5 animate-pop-in">
           <textarea
             autoFocus
             rows={2}
@@ -137,16 +165,16 @@ export function BoardColumn({
                 setAdding(false);
                 setTitle("");
               }
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                event.currentTarget.form?.requestSubmit();
+              }
             }}
-            className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-indigo-500"
+            className="input resize-none"
             aria-label={`New task in ${board.name}`}
           />
-          <div className="mt-1.5 flex gap-2">
-            <button
-              type="submit"
-              disabled={saving || !title.trim()}
-              className="rounded-md bg-indigo-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
-            >
+          <div className="mt-2 flex gap-2">
+            <button type="submit" disabled={saving || !title.trim()} className="btn-primary btn-sm">
               {saving ? "Adding…" : "Add task"}
             </button>
             <button
@@ -155,7 +183,7 @@ export function BoardColumn({
                 setAdding(false);
                 setTitle("");
               }}
-              className="rounded-md px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-200"
+              className="btn-ghost btn-sm"
             >
               Cancel
             </button>
@@ -165,9 +193,12 @@ export function BoardColumn({
         <button
           type="button"
           onClick={() => setAdding(true)}
-          className="mt-2 rounded-md px-2 py-1.5 text-left text-xs font-medium text-slate-600 hover:bg-slate-200"
+          className="mt-2.5 flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-left text-xs font-medium text-ink-500 transition hover:bg-white/80 hover:text-indigo-600"
         >
-          + Add task
+          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.6">
+            <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+          </svg>
+          Add task
         </button>
       )}
     </section>

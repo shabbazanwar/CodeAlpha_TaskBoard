@@ -7,14 +7,14 @@ export function Spinner({ label = "Loading" }: { label?: string }) {
     <span
       role="status"
       aria-label={label}
-      className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600"
+      className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600"
     />
   );
 }
 
 export function LoadingBlock({ label = "Loading…" }: { label?: string }) {
   return (
-    <div className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500">
+    <div className="flex items-center justify-center gap-2.5 py-16 text-sm text-ink-500">
       <Spinner />
       <span>{label}</span>
     </div>
@@ -29,17 +29,10 @@ export function ErrorBlock({
   onRetry?: () => void;
 }) {
   return (
-    <div
-      role="alert"
-      className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-    >
+    <div role="alert" className="alert-error flex-col items-start">
       <p>{message}</p>
       {onRetry ? (
-        <button
-          type="button"
-          onClick={onRetry}
-          className="mt-2 rounded-md border border-red-300 bg-white px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-100"
-        >
+        <button type="button" onClick={onRetry} className="btn-danger btn-sm">
           Try again
         </button>
       ) : null}
@@ -57,10 +50,22 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-dashed border-slate-300 bg-white px-6 py-10 text-center">
-      <p className="text-sm font-medium text-slate-900">{title}</p>
-      {description ? <p className="mt-1 text-sm text-slate-500">{description}</p> : null}
-      {action ? <div className="mt-4 flex justify-center">{action}</div> : null}
+    <div className="relative overflow-hidden rounded-3xl border border-dashed border-ink-200 bg-white/60 px-6 py-14 text-center backdrop-blur">
+      <div className="bg-dots pointer-events-none absolute inset-0 opacity-60 [mask-image:radial-gradient(closest-side,black,transparent)]" />
+      <div className="relative">
+        <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-100 to-violet-100 text-indigo-600">
+          <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <rect x="3" y="4" width="5" height="16" rx="1.5" />
+            <rect x="10" y="4" width="5" height="10" rx="1.5" />
+            <rect x="17" y="4" width="4" height="6" rx="1.5" />
+          </svg>
+        </span>
+        <p className="mt-4 text-base font-semibold text-ink-900">{title}</p>
+        {description ? (
+          <p className="mx-auto mt-1 max-w-sm text-sm text-ink-500">{description}</p>
+        ) : null}
+        {action ? <div className="mt-5 flex justify-center">{action}</div> : null}
+      </div>
     </div>
   );
 }

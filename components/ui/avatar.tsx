@@ -1,13 +1,15 @@
 import type { UserSummary } from "@/lib/types";
 
-/** Deterministic colour per person, so the same face keeps the same tint. */
+/** Deterministic gradient per person, so the same face keeps the same colour. */
 const PALETTE = [
-  "bg-rose-100 text-rose-700",
-  "bg-amber-100 text-amber-700",
-  "bg-emerald-100 text-emerald-700",
-  "bg-sky-100 text-sky-700",
-  "bg-violet-100 text-violet-700",
-  "bg-teal-100 text-teal-700",
+  "from-rose-400 to-orange-400",
+  "from-amber-400 to-orange-500",
+  "from-emerald-400 to-teal-500",
+  "from-sky-400 to-indigo-500",
+  "from-violet-400 to-fuchsia-500",
+  "from-teal-400 to-cyan-500",
+  "from-blue-400 to-indigo-500",
+  "from-indigo-400 to-violet-500",
 ];
 
 export function initialsOf(name: string, email: string): string {
@@ -23,21 +25,63 @@ function tintFor(id: string): string {
   return PALETTE[sum % PALETTE.length];
 }
 
+const SIZES = {
+  xs: "h-5 w-5 text-[9px]",
+  sm: "h-6 w-6 text-[10px]",
+  md: "h-8 w-8 text-xs",
+  lg: "h-10 w-10 text-sm",
+} as const;
+
 export function Avatar({
   user,
   size = "md",
+  ring = false,
+  single = false,
 }: {
   user: UserSummary;
-  size?: "sm" | "md";
+  size?: keyof typeof SIZES;
+  /** White ring, for when avatars overlap in a stack. */
+  ring?: boolean;
+  /** Show one initial instead of two, for tight spaces. */
+  single?: boolean;
 }) {
-  const dimensions = size === "sm" ? "h-6 w-6 text-[10px]" : "h-8 w-8 text-xs";
-
   return (
     <span
       title={`${user.name} (${user.email})`}
-      className={`inline-flex shrink-0 items-center justify-center rounded-full font-semibold ${dimensions} ${tintFor(user.id)}`}
+      className={`inline-flex shrink-0 select-none items-center justify-center rounded-full bg-gradient-to-br font-semibold text-white shadow-sm ${SIZES[size]} ${tintFor(user.id)} ${
+        ring ? "ring-2 ring-white" : ""
+      }`}
     >
-      {initialsOf(user.name, user.email)}
+      {single ? initialsOf(user.name, user.email).charAt(0) : initialsOf(user.name, user.email)}
+    </span>
+  );
+}
+
+/** Overlapping avatars with a "+N" chip once there are more than `max`. */
+export function AvatarStack({
+  users,
+  max = 5,
+  size = "md",
+}: {
+  users: UserSummary[];
+  max?: number;
+  size?: keyof typeof SIZES;
+}) {
+  const shown = users.slice(0, max);
+  const extra = users.length - shown.length;
+
+  return (
+    <span className="inline-flex items-center -space-x-1">
+      {shown.map((user) => (
+        <Avatar key={user.id} user={user} size={size} ring single={size === "sm" || size === "xs"} />
+      ))}
+      {extra > 0 ? (
+        <span
+          className={`inline-flex items-center justify-center rounded-full bg-ink-100 font-semibold text-ink-600 ring-2 ring-white ${SIZES[size]}`}
+        >
+          +{extra}
+        </span>
+      ) : null}
     </span>
   );
 }

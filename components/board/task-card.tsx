@@ -5,10 +5,10 @@ import { CSS } from "@dnd-kit/utilities";
 import { Avatar } from "@/components/ui/avatar";
 import type { BoardData, TaskCardData } from "@/lib/types";
 
-const PRIORITY_STYLES: Record<TaskCardData["priority"], string> = {
-  LOW: "bg-slate-100 text-slate-600",
-  MEDIUM: "bg-amber-100 text-amber-700",
-  HIGH: "bg-rose-100 text-rose-700",
+const PRIORITY: Record<TaskCardData["priority"], { chip: string; bar: string; label: string }> = {
+  LOW: { chip: "bg-sky-50 text-sky-700 ring-sky-100", bar: "bg-sky-400", label: "Low" },
+  MEDIUM: { chip: "bg-amber-50 text-amber-700 ring-amber-100", bar: "bg-amber-400", label: "Medium" },
+  HIGH: { chip: "bg-rose-50 text-rose-700 ring-rose-100", bar: "bg-rose-500", label: "High" },
 };
 
 /** Formats a due date and flags it when it is today or in the past. */
@@ -38,33 +38,54 @@ export function TaskCardBody({
 }) {
   const due = task.dueDate ? formatDueDate(task.dueDate) : null;
 
+  const priority = PRIORITY[task.priority];
+
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-3 shadow-sm transition hover:border-indigo-300">
+    <div className="group relative overflow-hidden rounded-xl border border-ink-100 bg-white p-3.5 pl-4 shadow-card transition duration-150 hover:border-indigo-200 hover:shadow-lift">
+      <span aria-hidden className={`absolute inset-y-0 left-0 w-1 ${priority.bar}`} />
+
       <button
         type="button"
         onClick={onOpen}
-        className="block w-full text-left text-sm font-medium text-slate-900 hover:text-indigo-700"
+        className="block w-full text-left text-[13.5px] font-medium leading-snug text-ink-900 transition hover:text-indigo-600"
       >
         {task.title}
       </button>
 
-      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+      {task.description ? (
+        <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-ink-400">{task.description}</p>
+      ) : null}
+
+      <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
         <span
-          className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${PRIORITY_STYLES[task.priority]}`}
+          className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold ring-1 ${priority.chip}`}
         >
-          {task.priority}
+          {priority.label}
         </span>
 
         {due ? (
-          <span className={due.overdue ? "font-medium text-rose-600" : "text-slate-500"}>
-            {due.overdue ? "Due " : ""}
+          <span
+            className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium ${
+              due.overdue ? "bg-rose-50 text-rose-600" : "bg-ink-50 text-ink-500"
+            }`}
+          >
+            <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <rect x="3" y="5" width="18" height="16" rx="3" />
+              <path d="M8 3v4M16 3v4M3 10h18" strokeLinecap="round" />
+            </svg>
             {due.label}
           </span>
         ) : null}
 
         {task.commentCount > 0 ? (
-          <span className="text-slate-500" title={`${task.commentCount} comments`}>
-            💬 {task.commentCount}
+          <span
+            className="inline-flex items-center gap-1 text-[11px] text-ink-400"
+            title={`${task.commentCount} comments`}
+          >
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M4 5h16v11H9l-5 4z" strokeLinejoin="round" />
+            </svg>
+            {task.commentCount}
           </span>
         ) : null}
 
@@ -72,22 +93,31 @@ export function TaskCardBody({
           {task.assignee ? (
             <Avatar user={task.assignee} size="sm" />
           ) : (
-            <span className="text-[10px] text-slate-400">Unassigned</span>
+            <span
+              title="Unassigned"
+              className="flex h-6 w-6 items-center justify-center rounded-full border border-dashed border-ink-200 text-ink-300"
+            >
+              <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2.4">
+                <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+              </svg>
+            </span>
           )}
         </span>
       </div>
 
-      {/* Keyboard/screen-reader friendly alternative to dragging. */}
-      <label className="mt-2 block">
+      {/* Keyboard/screen-reader friendly alternative to dragging. Tucked away
+          until hover or keyboard focus. On touch screens tasks move by long-press
+          drag, or through the Column picker in the task modal. */}
+      <label className="block max-h-0 overflow-hidden opacity-0 transition-all duration-150 focus-within:mt-3 focus-within:max-h-10 focus-within:opacity-100 group-hover:mt-3 group-hover:max-h-10 group-hover:opacity-100">
         <span className="sr-only">Move {task.title} to another column</span>
         <select
           value={task.boardId}
           onChange={(event) => onMove?.(event.target.value)}
-          className="w-full rounded border border-slate-200 bg-slate-50 px-1.5 py-1 text-xs text-slate-600 outline-none focus:border-indigo-400"
+          className="input input-sm py-1 text-xs"
         >
           {boards.map((board) => (
             <option key={board.id} value={board.id}>
-              {board.id === task.boardId ? `In ${board.name}` : `Move to ${board.name}`}
+              {board.id === task.boardId ? board.name : `Move to ${board.name}`}
             </option>
           ))}
         </select>
@@ -111,7 +141,7 @@ export function TaskCard(props: {
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={isDragging ? "opacity-40" : undefined}
+      className={isDragging ? "opacity-30" : undefined}
       {...attributes}
       {...listeners}
     >

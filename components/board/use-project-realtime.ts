@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { io } from "socket.io-client";
+import type { Socket } from "socket.io-client";
 import { api } from "@/lib/client";
 import type { RealtimeEvent } from "@/lib/realtime";
 import type { ProjectBoardData } from "@/lib/types";
@@ -24,6 +24,9 @@ const EVENTS: RealtimeEvent["event"][] = [
  * Subscribes to the project's live-update room. Does nothing when
  * NEXT_PUBLIC_REALTIME_URL is unset, so the board works fine without it.
  * The socket is closed on unmount, so navigating away never leaks a connection.
+ *
+ * socket.io-client is imported dynamically inside the effect: it is browser-only,
+ * and loading it at module level breaks server rendering of the board page.
  */
 export function useProjectRealtime(projectId: string, handlers: Handlers) {
   const handlersRef = useRef(handlers);
@@ -33,34 +36,44 @@ export function useProjectRealtime(projectId: string, handlers: Handlers) {
     const url = process.env.NEXT_PUBLIC_REALTIME_URL;
     if (!url) return;
 
-    let hasConnectedBefore = false;
+    let cancelled = false;
+    let socket: Socket | null = null;
 
-    const socket = io(url, {
-      // Re-evaluated on every (re)connect, because tokens are short-lived.
-      auth: (callback) => {
-        api<{ token: string }>(`/api/projects/${projectId}/realtime-token`)
-          .then(({ token }) => callback({ token }))
-          .catch(() => callback({ token: "" }));
-      },
-    });
+    void import("socket.io-client").then(({ io }) => {
+      if (cancelled) return;
 
-    for (const event of EVENTS) {
-      socket.on(event, (payload) => handlersRef.current.onEvent({ event, payload } as RealtimeEvent));
-    }
+      let hasConnectedBefore = false;
 
-    socket.on("connect", () => {
-      // Anything that happened while we were offline was missed; reload it.
-      if (hasConnectedBefore) {
-        api<ProjectBoardData>(`/api/projects/${projectId}`)
-          .then((project) => handlersRef.current.onResync(project))
-          .catch(() => undefined);
+      socket = io(url, {
+        // Re-evaluated on every (re)connect, because tokens are short-lived.
+        auth: (callback) => {
+          api<{ token: string }>(`/api/projects/${projectId}/realtime-token`)
+            .then(({ token }) => callback({ token }))
+            .catch(() => callback({ token: "" }));
+        },
+      });
+
+      for (const event of EVENTS) {
+        socket.on(event, (payload) =>
+          handlersRef.current.onEvent({ event, payload } as RealtimeEvent)
+        );
       }
-      hasConnectedBefore = true;
+
+      socket.on("connect", () => {
+        // Anything that happened while we were offline was missed; reload it.
+        if (hasConnectedBefore) {
+          api<ProjectBoardData>(`/api/projects/${projectId}`)
+            .then((project) => handlersRef.current.onResync(project))
+            .catch(() => undefined);
+        }
+        hasConnectedBefore = true;
+      });
     });
 
     return () => {
-      socket.removeAllListeners();
-      socket.disconnect();
+      cancelled = true;
+      socket?.removeAllListeners();
+      socket?.disconnect();
     };
   }, [projectId]);
 }
