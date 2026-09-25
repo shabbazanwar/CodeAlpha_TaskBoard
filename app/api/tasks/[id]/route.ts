@@ -4,6 +4,7 @@ import { getTaskAccess, isProjectMember } from "@/lib/authz";
 import { insertAt } from "@/lib/ordering";
 import { prisma } from "@/lib/prisma";
 import { getTaskDetail, taskSelect } from "@/lib/queries";
+import { serializeTask, serializeTaskDetail } from "@/lib/serialize";
 import { getCurrentUser } from "@/lib/session";
 import { updateTaskSchema } from "@/lib/validation";
 
@@ -18,7 +19,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   const task = await getTaskDetail(params.id);
   if (!task) return notFound("Task not found");
 
-  return NextResponse.json(task);
+  return NextResponse.json(serializeTaskDetail(task));
 }
 
 /**
@@ -116,7 +117,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     return tx.task.findUnique({ where: { id: params.id }, select: taskSelect });
   });
 
-  return NextResponse.json(task);
+  return NextResponse.json(task ? serializeTask(task) : null);
 }
 
 /** DELETE /api/tasks/[id] — remove a task and renumber the column. */

@@ -3,6 +3,7 @@ import { apiError, notFound, readJson, unauthorized, validationError } from "@/l
 import { getBoardAccess, isProjectMember } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
 import { taskSelect } from "@/lib/queries";
+import { serializeTask } from "@/lib/serialize";
 import { getCurrentUser } from "@/lib/session";
 import { createTaskSchema } from "@/lib/validation";
 
@@ -49,5 +50,5 @@ export async function POST(request: Request, { params }: { params: { id: string 
     select: taskSelect,
   });
 
-  return NextResponse.json(task, { status: 201 });
+  return NextResponse.json(serializeTask(task), { status: 201 });
 }

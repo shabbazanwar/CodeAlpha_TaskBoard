@@ -3,6 +3,7 @@ import { apiError, notFound, readJson, unauthorized, validationError } from "@/l
 import { getTaskAccess } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
 import { commentSelect } from "@/lib/queries";
+import { serializeComment } from "@/lib/serialize";
 import { getCurrentUser } from "@/lib/session";
 import { createCommentSchema } from "@/lib/validation";
 
@@ -25,5 +26,5 @@ export async function POST(request: Request, { params }: { params: { id: string 
     select: commentSelect,
   });
 
-  return NextResponse.json(comment, { status: 201 });
+  return NextResponse.json(serializeComment(comment), { status: 201 });
 }

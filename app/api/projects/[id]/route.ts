@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { notFound, unauthorized } from "@/lib/api";
 import { getProjectAccess } from "@/lib/authz";
 import { getProjectBoard } from "@/lib/queries";
+import { serializeProjectBoard } from "@/lib/serialize";
 import { getCurrentUser } from "@/lib/session";
 
 /**
@@ -18,5 +19,5 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   const project = await getProjectBoard(params.id);
   if (!project) return notFound("Project not found");
 
-  return NextResponse.json({ ...project, role: access.role });
+  return NextResponse.json(serializeProjectBoard(project, access.role));
 }

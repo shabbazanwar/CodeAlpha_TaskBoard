@@ -32,10 +32,13 @@ export async function GET() {
   });
 
   return NextResponse.json(
-    projects.map(({ members, ...project }) => ({
+    projects.map(({ members, _count, updatedAt, ...project }) => ({
       ...project,
       // The caller's own role, flattened for convenience.
       role: members[0]?.role ?? "MEMBER",
+      memberCount: _count.members,
+      boardCount: _count.boards,
+      updatedAt: updatedAt.toISOString(),
     }))
   );
 }
