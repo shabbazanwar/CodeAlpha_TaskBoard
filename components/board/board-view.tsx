@@ -1,21 +1,43 @@
 "use client";
 
+import {
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  closestCorners,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { useCallback, useState, type FormEvent } from "react";
 import { BoardColumn } from "@/components/board/board-column";
+import { TaskCardBody } from "@/components/board/task-card";
 import {
+  applyRemoteTask,
   findTask,
   moveTaskLocal,
   patchTaskLocal,
   removeTaskLocal,
+  upsertBoardLocal,
   upsertTaskLocal,
 } from "@/components/board/board-state";
+import { useProjectRealtime } from "@/components/board/use-project-realtime";
 import { InviteMember } from "@/components/board/invite-member";
 import { TaskDetail } from "@/components/board/task-detail";
 import { Avatar } from "@/components/ui/avatar";
 import { ApiError, api, jsonBody } from "@/lib/client";
 import type { BoardData, MemberData, ProjectBoardData, TaskCardData } from "@/lib/types";
 
-export function BoardView({ project: initialProject }: { project: ProjectBoardData }) {
+export function BoardView({
+  project: initialProject,
+  currentUserId,
+}: {
+  project: ProjectBoardData;
+  currentUserId: string;
+}) {
   const [project, setProject] = useState(initialProject);
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -77,6 +99,62 @@ export function BoardView({ project: initialProject }: { project: ProjectBoardDa
     [project.boards, report, setBoards]
   );
 
+  /* ----------------------------------------------------- drag and drop --- */
+
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    // A small distance lets plain clicks on the card title and select through.
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleDragStart = (event: DragStartEvent) => setDraggingId(String(event.active.id));
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    setDraggingId(null);
+    const { active, over } = event;
+    if (!over) return;
+
+    const taskId = String(active.id);
+    const current = findTask(project.boards, taskId);
+    if (!current) return;
+
+    const overId = String(over.id);
+    let toBoardId: string;
+    let toIndex: number;
+
+    if (overId.startsWith("column:")) {
+      toBoardId = overId.slice("column:".length);
+      const column = project.boards.find((board) => board.id === toBoardId);
+      if (!column) return;
+      // Dropped on the column itself: stay put in the same column, else append.
+      toIndex = toBoardId === current.boardId ? current.position : column.tasks.length;
+    } else {
+      const overTask = findTask(project.boards, overId);
+      if (!overTask) return;
+      toBoardId = overTask.boardId;
+      const overIndex = (project.boards.find((board) => board.id === toBoardId)?.tasks ?? []).findIndex(
+        (task) => task.id === overId
+      );
+
+      if (toBoardId === current.boardId) {
+        toIndex = overIndex;
+      } else {
+        // Cross-column: insert before the hovered card, or after it when the
+        // dragged card sits past its midpoint.
+        const translated = active.rect.current.translated;
+        const below = translated != null && translated.top > over.rect.top + over.rect.height / 2;
+        toIndex = overIndex + (below ? 1 : 0);
+      }
+    }
+
+    if (toBoardId === current.boardId && toIndex === current.position) return;
+    void moveTask(taskId, toBoardId, toIndex);
+  };
+
+  const draggingTask = draggingId ? findTask(project.boards, draggingId) : undefined;
+
   const handleTaskChanged = useCallback(
     (task: TaskCardData) => setBoards((boards) => upsertTaskLocal(boards, task)),
     [setBoards]
@@ -96,6 +174,39 @@ export function BoardView({ project: initialProject }: { project: ProjectBoardDa
       }),
     [setBoards]
   );
+
+  /* --------------------------------------------------------- real time --- */
+
+  useProjectRealtime(project.id, {
+    onResync: setProject,
+    onEvent: (message) => {
+      // Our own changes were already applied optimistically.
+      if (message.payload.actorId === currentUserId) return;
+
+      switch (message.event) {
+        case "task:upsert":
+          setBoards((boards) => applyRemoteTask(boards, message.payload.task));
+          break;
+        case "task:delete":
+          setBoards((boards) => removeTaskLocal(boards, message.payload.taskId));
+          setOpenTaskId((open) => (open === message.payload.taskId ? null : open));
+          break;
+        case "comment:added":
+          handleCommentAdded(message.payload.taskId);
+          break;
+        case "board:upsert":
+          setBoards((boards) => upsertBoardLocal(boards, message.payload.board));
+          break;
+        case "member:added":
+          setProject((current) =>
+            current.members.some((member) => member.id === message.payload.member.id)
+              ? current
+              : { ...current, members: [...current.members, message.payload.member] }
+          );
+          break;
+      }
+    },
+  });
 
   /* ------------------------------------------------------------ boards --- */
 
@@ -193,6 +304,13 @@ export function BoardView({ project: initialProject }: { project: ProjectBoardDa
         </p>
       ) : null}
 
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDragCancel={() => setDraggingId(null)}
+      >
       <div className="mt-6 flex items-start gap-4 overflow-x-auto pb-4">
         {project.boards.map((board) => (
           <BoardColumn
@@ -249,6 +367,15 @@ export function BoardView({ project: initialProject }: { project: ProjectBoardDa
           )}
         </div>
       </div>
+
+      <DragOverlay>
+        {draggingTask ? (
+          <div className="w-72 rotate-2 cursor-grabbing">
+            <TaskCardBody task={draggingTask} boards={project.boards} />
+          </div>
+        ) : null}
+      </DragOverlay>
+      </DndContext>
 
       {openTaskId ? (
         <TaskDetail

@@ -97,3 +97,30 @@ export function patchTaskLocal(
     tasks: board.tasks.map((task) => (task.id === taskId ? { ...task, ...patch } : task)),
   }));
 }
+
+/**
+ * Apply a task change made by someone else. An existing task is moved to its
+ * stated column/position first (so siblings shift exactly as they did on the
+ * server), then its other fields are overwritten.
+ */
+export function applyRemoteTask(boards: BoardData[], task: TaskCardData): BoardData[] {
+  if (!findTask(boards, task.id)) return upsertTaskLocal(boards, task);
+
+  const moved = moveTaskLocal(boards, task.id, task.boardId, task.position);
+  return patchTaskLocal(moved, task.id, { ...task, position: findTask(moved, task.id)?.position ?? task.position });
+}
+
+/** Add or rename a column and put it at its stated position. */
+export function upsertBoardLocal(
+  boards: BoardData[],
+  board: Pick<BoardData, "id" | "name" | "position">
+): BoardData[] {
+  const existing = boards.find((candidate) => candidate.id === board.id);
+  const others = boards.filter((candidate) => candidate.id !== board.id);
+  const next: BoardData = existing
+    ? { ...existing, name: board.name }
+    : { id: board.id, name: board.name, position: board.position, tasks: [] };
+
+  others.splice(clampIndex(board.position, others.length), 0, next);
+  return others.map((candidate, position) => ({ ...candidate, position }));
+}

@@ -34,5 +34,5 @@ export default async function ProjectBoardPage({ params }: { params: { id: strin
   const project = await getProjectBoard(params.id);
   if (!project) notFound();
 
-  return <BoardView project={serializeProjectBoard(project, access.role)} />;
+  return <BoardView project={serializeProjectBoard(project, access.role)} currentUserId={user.id} />;
 }

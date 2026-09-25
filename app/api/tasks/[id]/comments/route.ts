@@ -3,6 +3,7 @@ import { apiError, notFound, readJson, unauthorized, validationError } from "@/l
 import { getTaskAccess } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
 import { commentSelect } from "@/lib/queries";
+import { broadcast } from "@/lib/realtime";
 import { serializeComment } from "@/lib/serialize";
 import { getCurrentUser } from "@/lib/session";
 import { createCommentSchema } from "@/lib/validation";
@@ -24,6 +25,11 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const comment = await prisma.comment.create({
     data: { body: parsed.data.body, taskId: params.id, authorId: user.id },
     select: commentSelect,
+  });
+
+  await broadcast(access.projectId, {
+    event: "comment:added",
+    payload: { actorId: user.id, taskId: params.id },
   });
 
   return NextResponse.json(serializeComment(comment), { status: 201 });

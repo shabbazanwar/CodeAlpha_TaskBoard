@@ -1,0 +1,15 @@
+# The Next.js app deploys to Vercel (see vercel.json). Socket.io needs a
+# long-lived process, so the realtime relay runs as its own Render web service.
+services:
+  - type: web
+    name: taskboard-realtime
+    runtime: node
+    plan: free
+    buildCommand: npm ci --omit=dev --ignore-scripts
+    startCommand: node realtime/server.mjs
+    healthCheckPath: /health
+    envVars:
+      - key: REALTIME_SECRET
+        sync: false # same value as the Vercel env var of the same name
+      - key: APP_ORIGIN
+        sync: false # e.g. https://your-app.vercel.app (comma-separate for several)

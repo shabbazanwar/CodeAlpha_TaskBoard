@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { apiError, forbidden, notFound, readJson, unauthorized, validationError } from "@/lib/api";
 import { canManageMembers, getProjectAccess } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
+import { broadcast } from "@/lib/realtime";
 import { getCurrentUser } from "@/lib/session";
 import { addMemberSchema } from "@/lib/validation";
 
@@ -51,6 +52,14 @@ export async function POST(request: Request, { params }: { params: { id: string 
       role: true,
       createdAt: true,
       user: { select: { id: true, name: true, email: true } },
+    },
+  });
+
+  await broadcast(params.id, {
+    event: "member:added",
+    payload: {
+      actorId: user.id,
+      member: { id: member.id, role: member.role, user: member.user },
     },
   });
 

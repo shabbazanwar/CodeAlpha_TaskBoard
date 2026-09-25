@@ -3,6 +3,7 @@ import { apiError, notFound, readJson, unauthorized, validationError } from "@/l
 import { getBoardAccess, isProjectMember } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
 import { taskSelect } from "@/lib/queries";
+import { broadcast } from "@/lib/realtime";
 import { serializeTask } from "@/lib/serialize";
 import { getCurrentUser } from "@/lib/session";
 import { createTaskSchema } from "@/lib/validation";
@@ -50,5 +51,11 @@ export async function POST(request: Request, { params }: { params: { id: string 
     select: taskSelect,
   });
 
-  return NextResponse.json(serializeTask(task), { status: 201 });
+  const serialized = serializeTask(task);
+  await broadcast(access.projectId, {
+    event: "task:upsert",
+    payload: { actorId: user.id, task: serialized },
+  });
+
+  return NextResponse.json(serialized, { status: 201 });
 }

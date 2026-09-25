@@ -1,5 +1,7 @@
 "use client";
 
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Avatar } from "@/components/ui/avatar";
 import type { BoardData, TaskCardData } from "@/lib/types";
 
@@ -22,7 +24,8 @@ export function formatDueDate(iso: string): { label: string; overdue: boolean } 
   return { label, overdue: dueDay.getTime() <= today.getTime() };
 }
 
-export function TaskCard({
+/** Static card body; also rendered inside the drag overlay. */
+export function TaskCardBody({
   task,
   boards,
   onOpen,
@@ -30,8 +33,8 @@ export function TaskCard({
 }: {
   task: TaskCardData;
   boards: BoardData[];
-  onOpen: () => void;
-  onMove: (toBoardId: string) => void;
+  onOpen?: () => void;
+  onMove?: (toBoardId: string) => void;
 }) {
   const due = task.dueDate ? formatDueDate(task.dueDate) : null;
 
@@ -74,12 +77,12 @@ export function TaskCard({
         </span>
       </div>
 
-      {/* Keyboard//screen-reader friendly alternative to dragging. */}
+      {/* Keyboard/screen-reader friendly alternative to dragging. */}
       <label className="mt-2 block">
         <span className="sr-only">Move {task.title} to another column</span>
         <select
           value={task.boardId}
-          onChange={(event) => onMove(event.target.value)}
+          onChange={(event) => onMove?.(event.target.value)}
           className="w-full rounded border border-slate-200 bg-slate-50 px-1.5 py-1 text-xs text-slate-600 outline-none focus:border-indigo-400"
         >
           {boards.map((board) => (
@@ -89,6 +92,30 @@ export function TaskCard({
           ))}
         </select>
       </label>
+    </div>
+  );
+}
+
+export function TaskCard(props: {
+  task: TaskCardData;
+  boards: BoardData[];
+  onOpen: () => void;
+  onMove: (toBoardId: string) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: props.task.id,
+    data: { type: "task", boardId: props.task.boardId },
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={isDragging ? "opacity-40" : undefined}
+      {...attributes}
+      {...listeners}
+    >
+      <TaskCardBody {...props} />
     </div>
   );
 }

@@ -116,6 +116,7 @@ project ID is real to someone who has no business knowing.
 | `PATCH`  | `/api/tasks/[id]`              | project member          | Edit, move column, reorder, assign              |
 | `DELETE` | `/api/tasks/[id]`              | project member          | Renumbers the column afterwards                 |
 | `POST`   | `/api/tasks/[id]/comments`     | project member          | Adds a comment authored by the caller           |
+| `GET`    | `/api/projects/[id]/realtime-token` | project member     | Short-lived token to join the live-update room; `503` if realtime is off |
 
 ### Rules enforced server-side
 
@@ -134,7 +135,48 @@ project ID is real to someone who has no business knowing.
 - [x] **Phase 1** — User model, NextAuth credentials auth, protected routes
 - [x] **Phase 2** — Project / ProjectMember / Board / Task / Comment schema + seed
 - [x] **Phase 3** — API routes with auth and membership checks
-- [ ] **Phase 4** — Core UI (projects list, board view, task detail)
-- [ ] **Phase 5** — Drag-and-drop
-- [ ] **Phase 6** — Real-time updates via Socket.io
-- [ ] **Phase 7** — Polish and deploy
+- [x] **Phase 4** — Core UI (projects list, board view, task detail)
+- [x] **Phase 5** — Drag-and-drop (`@dnd-kit`; the move dropdown stays for keyboard/screen-reader use)
+- [x] **Phase 6** — Real-time updates via Socket.io
+- [x] **Phase 7** — Polish and deploy
+
+## Real-time updates
+
+Socket.io needs a long-lived process, so it runs separately from Next.js
+(`realtime/server.mjs`) and the app can stay on serverless hosting.
+
+```
+browser ── socket + signed token ──▶ realtime relay ◀── POST /emit ── Next.js API routes
+```
+
+- After every successful write the API routes POST the event to the relay
+  (`lib/realtime.ts`). This is best-effort: if the relay is down the write still
+  succeeds and others see it on refresh.
+- A browser joins a project's room only with a token from
+  `GET /api/projects/[id]/realtime-token`, which checks membership and expires
+  after 5 minutes. The relay verifies the HMAC, so a non-member cannot listen.
+- Events: `task:upsert`, `task:delete`, `comment:added`, `board:upsert`, `member:added`.
+  Clients ignore events from their own user (already applied optimistically) and
+  reload the board after reconnecting so nothing missed is lost.
+- Optional: leave `NEXT_PUBLIC_REALTIME_URL` unset and the board works without it.
+
+Run locally in a second terminal: `npm run realtime` (needs `REALTIME_SECRET`
+and the other realtime variables from `.env.example`, loaded into the shell).
+
+## Deploying
+
+**App → Vercel.** Import the repo; `vercel.json` runs `npm run vercel-build`
+(`prisma migrate deploy && next build`). Set these environment variables:
+
+| Variable                   | Value                                                     |
+| -------------------------- | --------------------------------------------------------- |
+| `DATABASE_URL`             | Neon pooled connection string                             |
+| `DIRECT_URL`               | Neon direct connection string (used by `migrate deploy`)  |
+| `NEXTAUTH_SECRET`          | `openssl rand -base64 32`                                 |
+| `NEXTAUTH_URL`             | The deployed app URL                                      |
+| `REALTIME_SECRET`          | Shared secret (same as the relay)                         |
+| `REALTIME_URL`             | The relay's public URL                                    |
+| `NEXT_PUBLIC_REALTIME_URL` | The relay's public URL                                    |
+
+**Realtime relay → Render.** `render.yaml` defines it as a web service. Set
+`REALTIME_SECRET` (same value as above) and `APP_ORIGIN` (the app's URL).

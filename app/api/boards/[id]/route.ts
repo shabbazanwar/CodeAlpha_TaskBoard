@@ -3,6 +3,7 @@ import { apiError, notFound, readJson, unauthorized, validationError } from "@/l
 import { getBoardAccess } from "@/lib/authz";
 import { insertAt } from "@/lib/ordering";
 import { prisma } from "@/lib/prisma";
+import { broadcast } from "@/lib/realtime";
 import { getCurrentUser } from "@/lib/session";
 import { updateBoardSchema } from "@/lib/validation";
 
@@ -45,6 +46,16 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       select: { id: true, name: true, position: true, projectId: true },
     });
   });
+
+  if (board) {
+    await broadcast(access.projectId, {
+      event: "board:upsert",
+      payload: {
+        actorId: user.id,
+        board: { id: board.id, name: board.name, position: board.position },
+      },
+    });
+  }
 
   return NextResponse.json(board);
 }

@@ -1,8 +1,12 @@
 "use client";
 
+import { useDroppable } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useState, type FormEvent } from "react";
 import { TaskCard } from "@/components/board/task-card";
 import type { BoardData } from "@/lib/types";
+
+export const columnDropId = (boardId: string) => `column:${boardId}`;
 
 export function BoardColumn({
   board,
@@ -24,6 +28,10 @@ export function BoardColumn({
   const [saving, setSaving] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [name, setName] = useState(board.name);
+  const { setNodeRef, isOver } = useDroppable({
+    id: columnDropId(board.id),
+    data: { type: "column", boardId: board.id },
+  });
 
   async function handleAdd(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -52,7 +60,12 @@ export function BoardColumn({
   }
 
   return (
-    <section className="flex w-72 shrink-0 flex-col rounded-lg bg-slate-100 p-3">
+    <section
+      ref={setNodeRef}
+      className={`flex w-72 shrink-0 flex-col rounded-lg p-3 transition-colors ${
+        isOver ? "bg-indigo-50 ring-2 ring-indigo-200" : "bg-slate-100"
+      }`}
+    >
       <header className="flex items-center justify-between gap-2">
         {renaming ? (
           <form
@@ -87,22 +100,27 @@ export function BoardColumn({
         </span>
       </header>
 
-      <div className="mt-3 flex flex-col gap-2">
+      <div className="mt-3 flex min-h-[2.5rem] flex-col gap-2">
         {board.tasks.length === 0 && !adding ? (
           <p className="rounded-md border border-dashed border-slate-300 px-3 py-6 text-center text-xs text-slate-500">
             Nothing here yet.
           </p>
         ) : null}
 
-        {board.tasks.map((task) => (
-          <TaskCard
-            key={task.id}
-            task={task}
-            boards={boards}
-            onOpen={() => onOpenTask(task.id)}
-            onMove={(toBoardId) => onMoveTask(task.id, toBoardId)}
-          />
-        ))}
+        <SortableContext
+          items={board.tasks.map((task) => task.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          {board.tasks.map((task) => (
+            <TaskCard
+              key={task.id}
+              task={task}
+              boards={boards}
+              onOpen={() => onOpenTask(task.id)}
+              onMove={(toBoardId) => onMoveTask(task.id, toBoardId)}
+            />
+          ))}
+        </SortableContext>
       </div>
 
       {adding ? (

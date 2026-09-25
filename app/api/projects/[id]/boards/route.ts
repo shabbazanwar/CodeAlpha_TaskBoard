@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { apiError, notFound, readJson, unauthorized, validationError } from "@/lib/api";
 import { getProjectAccess } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
+import { broadcast } from "@/lib/realtime";
 import { getCurrentUser } from "@/lib/session";
 import { createBoardSchema } from "@/lib/validation";
 
@@ -32,6 +33,14 @@ export async function POST(request: Request, { params }: { params: { id: string 
       projectId: params.id,
     },
     select: { id: true, name: true, position: true, projectId: true },
+  });
+
+  await broadcast(params.id, {
+    event: "board:upsert",
+    payload: {
+      actorId: user.id,
+      board: { id: board.id, name: board.name, position: board.position },
+    },
   });
 
   return NextResponse.json({ ...board, tasks: [] }, { status: 201 });

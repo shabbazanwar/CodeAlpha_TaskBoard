@@ -4,6 +4,7 @@ import { getTaskAccess, isProjectMember } from "@/lib/authz";
 import { insertAt } from "@/lib/ordering";
 import { prisma } from "@/lib/prisma";
 import { getTaskDetail, taskSelect } from "@/lib/queries";
+import { broadcast } from "@/lib/realtime";
 import { serializeTask, serializeTaskDetail } from "@/lib/serialize";
 import { getCurrentUser } from "@/lib/session";
 import { updateTaskSchema } from "@/lib/validation";
@@ -117,7 +118,15 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     return tx.task.findUnique({ where: { id: params.id }, select: taskSelect });
   });
 
-  return NextResponse.json(task ? serializeTask(task) : null);
+  const serialized = task ? serializeTask(task) : null;
+  if (serialized) {
+    await broadcast(access.projectId, {
+      event: "task:upsert",
+      payload: { actorId: user.id, task: serialized },
+    });
+  }
+
+  return NextResponse.json(serialized);
 }
 
 /** DELETE /api/tasks/[id] — remove a task and renumber the column. */
@@ -146,6 +155,11 @@ export async function DELETE(_request: Request, { params }: { params: { id: stri
     await Promise.all(
       remaining.map(({ id }, index) => tx.task.update({ where: { id }, data: { position: index } }))
     );
+  });
+
+  await broadcast(access.projectId, {
+    event: "task:delete",
+    payload: { actorId: user.id, taskId: params.id },
   });
 
   return new NextResponse(null, { status: 204 });
