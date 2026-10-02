@@ -105,6 +105,9 @@ project ID is real to someone who has no business knowing.
 | -------- | ------------------------------ | ----------------------- | ---------------------------------------------- |
 | `POST`   | `/api/auth/register`           | anyone                  | Creates a user; `409` if the email is taken     |
 | `*`      | `/api/auth/[...nextauth]`      | anyone                  | NextAuth sign-in, sign-out and session          |
+| `POST`   | `/api/auth/forgot-password`   | anyone                  | Emails a reset link; always `200`, so it never reveals which emails have accounts |
+| `GET`    | `/api/auth/reset-password?token=` | anyone              | `{ valid }` — is this link still usable?        |
+| `POST`   | `/api/auth/reset-password`    | anyone with a link      | Sets a new password; `400` if the link is bad/used/expired |
 | `GET`    | `/api/projects`                | signed in               | Projects the caller owns or belongs to          |
 | `POST`   | `/api/projects`                | signed in               | Caller becomes `OWNER`; seeds three columns     |
 | `GET`    | `/api/projects/[id]`           | project member          | Full board: columns, tasks, members             |
@@ -180,3 +183,17 @@ and the other realtime variables from `.env.example`, loaded into the shell).
 
 **Realtime relay → Render.** `render.yaml` defines it as a web service. Set
 `REALTIME_SECRET` (same value as above) and `APP_ORIGIN` (the app's URL).
+
+## Password reset
+
+`/forgot-password` → email link → `/reset-password?token=…`.
+
+- Tokens are 32 random bytes; only a SHA-256 **hash** is stored, so a database leak
+  does not expose usable links. They expire after 1 hour and work once.
+- Requesting a new link invalidates older ones; one email per address per minute.
+- The link is built from `NEXTAUTH_URL`, never from request headers.
+- Email is sent with [Resend](https://resend.com): set `RESEND_API_KEY` and `MAIL_FROM`
+  (an address on a domain you verified). Resend's free `onboarding@resend.dev` sender only
+  delivers to your own account email, so verify a domain before real users rely on this.
+- With no `RESEND_API_KEY`, development prints the link to the server console;
+  production logs a warning and sends nothing (it never logs the link).

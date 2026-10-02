@@ -29,16 +29,23 @@ export function Modal({
   const previouslyFocused = useRef<Element | null>(null);
   const [mounted, setMounted] = useState(false);
 
+  // Callers usually pass a fresh onClose on every render. Keep the latest one in a
+  // ref so the open/close effect below does not re-run on every keystroke, which
+  // would re-focus the dialog and steal focus from whatever the user is typing in.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !mounted) return;
 
     previouslyFocused.current = document.activeElement;
-    panelRef.current?.focus();
+    // Only take focus if a field (autoFocus) has not already claimed it.
+    if (!panelRef.current?.contains(document.activeElement)) panelRef.current?.focus();
 
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") onCloseRef.current();
     }
 
     document.addEventListener("keydown", onKeyDown);
@@ -51,7 +58,7 @@ export function Modal({
         previouslyFocused.current.focus();
       }
     };
-  }, [open, onClose]);
+  }, [open, mounted]);
 
   if (!open || !mounted) return null;
 

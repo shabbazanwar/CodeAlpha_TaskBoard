@@ -11,6 +11,15 @@ export const registerSchema = z.object({
     .max(100, "Password must be at most 100 characters"),
 });
 
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().email("Enter a valid email address"),
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(20, "This reset link is invalid").max(200),
+  password: registerSchema.shape.password,
+});
+
 export const credentialsSchema = z.object({
   email: z.string().trim().email(),
   password: z.string().min(1),
