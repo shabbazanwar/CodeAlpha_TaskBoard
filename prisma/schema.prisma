@@ -22,11 +22,27 @@ model User {
   name         String
   createdAt    DateTime @default(now())
 
-  ownedProjects Project[]       @relation("ProjectOwner")
-  memberships   ProjectMember[]
-  assignedTasks Task[]          @relation("TaskAssignee")
-  createdTasks  Task[]          @relation("TaskCreator")
-  comments      Comment[]
+  ownedProjects  Project[]            @relation("ProjectOwner")
+  memberships    ProjectMember[]
+  assignedTasks  Task[]               @relation("TaskAssignee")
+  createdTasks   Task[]               @relation("TaskCreator")
+  comments       Comment[]
+  passwordResets PasswordResetToken[]
+}
+
+/// One-time password reset link. Only a SHA-256 hash of the token is stored, so a
+/// database leak does not expose usable reset links.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Project {
